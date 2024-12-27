@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0.
  */
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <aws/core/utils/DNS.h>
 #include <aws/core/utils/StringUtils.h>
 
@@ -42,6 +44,12 @@ namespace Aws
 
         bool IsValidHost(const Aws::String& host)
         {
+            if (host.starts_with('[') && host.ends_with(']'))
+            {
+                const Aws::String host_ipv6 = host.substr(1, host.size()-2);
+                struct in6_addr address;
+                return inet_pton(AF_INET6, host_ipv6.c_str(), &address) == 1;
+            }
             // Valid DNS hostnames are composed of valid DNS labels separated by a period.
             auto labels = StringUtils::Split(host, '.');
             if (labels.empty()) 

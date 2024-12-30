@@ -101,6 +101,9 @@ namespace Aws
                  std::shared_ptr<S3EndpointProviderBase> endpointProvider = Aws::MakeShared<S3EndpointProvider>(ALLOCATION_TAG),
                  const Aws::S3::S3ClientConfiguration& clientConfiguration = Aws::S3::S3ClientConfiguration());
 
+        S3Client(const std::shared_ptr<Aws::Auth::AWSAuthSignerProvider>& authSignerProvider,
+               std::shared_ptr<S3EndpointProviderBase> endpointProvider = Aws::MakeShared<S3EndpointProvider>(ALLOCATION_TAG),
+               const S3::S3ClientConfiguration& clientConfiguration = Aws::S3::S3ClientConfiguration());
 
         /* Legacy constructors due deprecation */
        /**

@@ -169,6 +169,13 @@ namespace Aws
 
             Aws::String GetServiceName() const { return m_serviceName; }
             Aws::String GetRegion() const { return m_region; }
+            virtual Aws::String GenerateSignature(
+                const Aws::String & canonicalRequestString,
+                const Aws::String & date,
+                const Aws::String & simpleDate,
+                const Aws::String & signingRegion,
+                const Aws::String & signingServiceName,
+                const Aws::Auth::AWSCredentials& credentials) const;
             Aws::String GenerateSignature(const Aws::Auth::AWSCredentials& credentials,
                     const Aws::String& stringToSign, const Aws::String& simpleDate) const;
             bool ShouldSignHeader(const Aws::String& header) const;

@@ -306,21 +306,13 @@ bool AWSAuthV4Signer::SignRequest(Aws::Http::HttpRequest& request, const char* r
 
     AWS_LOGSTREAM_DEBUG(v4LogTag, "Canonical Request String: " << canonicalRequestString);
 
-    //now compute sha256 on that request string
-    auto hashResult = m_hash->Calculate(canonicalRequestString);
-    if (!hashResult.IsSuccess())
+    Aws::String simpleDate = now.ToGmtString(Aws::Auth::AWSAuthHelper::SIMPLE_DATE_FORMAT_STR);
+    auto finalSignature = GenerateSignature(canonicalRequestString, dateHeaderValue, simpleDate, signingRegion, signingServiceName, credentials);
+    if (finalSignature.empty())
     {
-        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to hash (sha256) request string");
-        AWS_LOGSTREAM_DEBUG(v4LogTag, "The request string is: \"" << canonicalRequestString << "\"");
+        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to sign request");
         return false;
     }
-
-    auto sha256Digest = hashResult.GetResult();
-    Aws::String canonicalRequestHash = HashingUtils::HexEncode(sha256Digest);
-    Aws::String simpleDate = now.ToGmtString(Aws::Auth::AWSAuthHelper::SIMPLE_DATE_FORMAT_STR);
-
-    Aws::String stringToSign = GenerateStringToSign(dateHeaderValue, simpleDate, canonicalRequestHash, signingRegion, signingServiceName);
-    auto finalSignature = GenerateSignature(credentials, stringToSign, simpleDate, signingRegion, signingServiceName);
 
     Aws::StringStream ss;
     ss << Aws::Auth::AWSAuthHelper::AWS_HMAC_SHA256 << " " << Aws::Auth::AWSAuthHelper::CREDENTIAL << Aws::Auth::AWSAuthHelper::EQ << credentials.GetAWSAccessKeyId() << "/" << simpleDate
@@ -430,20 +422,7 @@ bool AWSAuthV4Signer::PresignRequest(Aws::Http::HttpRequest& request, const char
     }
     AWS_LOGSTREAM_DEBUG(v4LogTag, "Canonical Request String: " << canonicalRequestString);
 
-    //now compute sha256 on that request string
-    auto hashResult = m_hash->Calculate(canonicalRequestString);
-    if (!hashResult.IsSuccess())
-    {
-        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to hash (sha256) request string");
-        AWS_LOGSTREAM_DEBUG(v4LogTag, "The request string is: \"" << canonicalRequestString << "\"");
-        return false;
-    }
-
-    auto sha256Digest = hashResult.GetResult();
-    auto canonicalRequestHash = HashingUtils::HexEncode(sha256Digest);
-
-    auto stringToSign = GenerateStringToSign(dateQueryValue, simpleDate, canonicalRequestHash, signingRegion, signingServiceName);
-    auto finalSigningHash = GenerateSignature(credentials, stringToSign, simpleDate, signingRegion, signingServiceName);
+    auto finalSigningHash = GenerateSignature(canonicalRequestString, dateQueryValue, simpleDate, signingRegion, signingServiceName, credentials);
     if (finalSigningHash.empty())
     {
         return false;
@@ -453,6 +432,28 @@ bool AWSAuthV4Signer::PresignRequest(Aws::Http::HttpRequest& request, const char
     request.AddQueryStringParameter(X_AMZ_SIGNATURE, finalSigningHash);
 
     return true;
+}
+
+Aws::String AWSAuthV4Signer::GenerateSignature(
+    const Aws::String & canonicalRequestString,
+    const Aws::String & date,
+    const Aws::String & simpleDate,
+    const Aws::String & signingRegion,
+    const Aws::String & signingServiceName,
+    const AWSCredentials& credentials) const
+{
+    //now compute sha256 on that request string
+    auto hashResult = m_hash->Calculate(canonicalRequestString);
+    if (!hashResult.IsSuccess())
+    {
+        AWS_LOGSTREAM_ERROR(v4LogTag, "Failed to hash (sha256) request string");
+        AWS_LOGSTREAM_DEBUG(v4LogTag, "The request string is: \"" << canonicalRequestString << "\"");
+        return "";
+    }
+    auto sha256Digest = hashResult.GetResult();
+    auto canonicalRequestHash = HashingUtils::HexEncode(sha256Digest);
+    auto stringToSign = GenerateStringToSign(date, simpleDate, canonicalRequestHash, signingRegion, signingServiceName);
+    return GenerateSignature(credentials, stringToSign, simpleDate, signingRegion, signingServiceName);
 }
 
 bool AWSAuthV4Signer::ServiceRequireUnsignedPayload(const Aws::String& serviceName) const
